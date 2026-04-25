@@ -4,6 +4,7 @@ from pathlib import Path
 from src.extractor import (
     CsvWriter,
     NubankTransactionsExtractor,
+    SantanderCardStatementExtractor,
     SicoobCardStatementExtractor,
     XlsxWriter,
     detect_bank,
@@ -12,27 +13,27 @@ from src.extractor import (
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Extrai transa√ß√µes do bloco "Nome do Titular" e gera CSV/XLSX.'
+        description="Extrai lanÁamentos de faturas em PDF (Nubank, Sicoob, Santander) e gera CSV ou XLSX."
     )
     
-    parser.add_argument("pdf", nargs="?", help="Caminho do arquivo PDF (fatura Nubank)")
+    parser.add_argument("pdf", nargs="?", help="Caminho do arquivo PDF da fatura")
     parser.add_argument(
         "-o",
         "--out",
         default=None,
-        help="Caminho do arquivo de sa√≠da (default: mesmo nome do PDF com extens√£o do formato)",
+        help="Caminho do arquivo de saÌda (default: mesmo nome do PDF com extens„o do formato)",
     )
     
     parser.add_argument(
         "--format",
         choices=["csv", "xlsx"],
         default="csv",
-        help="Formato de sa√≠da (default: csv)",
+        help="Formato de saÌda (default: csv)",
     )
 
     parser.add_argument(
         "--bank",
-        choices=["auto", "nubank", "sicoob"],
+        choices=["auto", "nubank", "sicoob", "santander"],
         default="auto",
         help="Banco do PDF (default: auto)",
     )
@@ -54,18 +55,20 @@ def main():
     if not args.pdf:
         args.pdf = input("Informe o caminho do PDF: ").strip().strip('"')
         if not args.pdf:
-            raise SystemExit("PDF n√£o informado.")
+            raise SystemExit("PDF n„o informado.")
     
 
     pdf_path = Path(args.pdf).expanduser()
     if not pdf_path.exists():
-        raise SystemExit(f"Arquivo n√£o encontrado: {pdf_path}")
+        raise SystemExit(f"Arquivo n„o encontrado: {pdf_path}")
 
     out_path = Path(args.out) if args.out else pdf_path.with_suffix(f".{args.format}")
 
     bank = args.bank if args.bank != "auto" else detect_bank(pdf_path)
     if bank == "sicoob":
         extractor = SicoobCardStatementExtractor(statement_year=args.year)
+    elif bank == "santander":
+        extractor = SantanderCardStatementExtractor(statement_year=args.year)
     else:
         extractor = NubankTransactionsExtractor(statement_year=args.year, holder_name=args.owner)
     result = extractor.extract(pdf_path)
