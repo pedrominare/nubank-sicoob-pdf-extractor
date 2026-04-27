@@ -11,7 +11,7 @@ try:
     import pdfplumber
 except ModuleNotFoundError as e:  # pragma: no cover
     raise ModuleNotFoundError(
-        'Dependência ausente: "pdfplumber". Instale com: pip install pdfplumber'
+        'Dependencia ausente: "pdfplumber". Instale com: pip install pdfplumber'
     ) from e
 
 
@@ -50,12 +50,12 @@ class NubankTransactionsExtractor:
     }
 
     DATE_RE = re.compile(r"^(?P<dd>\d{2})\s+(?P<mon>[A-Z]{3})\b")
-    # captura "R$ 1.234,56" e também "−R$ 3,94" / "-R$ 3,94"
+    # captura "R$ 1.234,56" e também "?R$ 3,94" / "-R$ 3,94"
     VALUE_RE = re.compile(
-        r"(?P<sign>[−-]?)\s*R\$\s*(?P<num>\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})"
+        r"(?P<sign>[?-]?)\s*R\$\s*(?P<num>\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})"
     )
     ONLY_BRL_LINE_RE = re.compile(
-        r"^(?P<sign>[−-]?)\s*R\$\s*(?P<num>\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s*$"
+        r"^(?P<sign>[?-]?)\s*R\$\s*(?P<num>\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})\s*$"
     )
 
     def __init__(self, statement_year: int = 2026, holder_name: str | None = "Nome do Titular"):
@@ -200,7 +200,7 @@ class NubankTransactionsExtractor:
                                     # - "Total a pagar: R$ 51,76" (texto do resumo)
                                     # - linha seguinte só "R$ 51,77" (valor final exibido)
                                     # Quando a diferença é de até 1 centavo, o valor final exibido na fatura é o da
-                                    # linha isolada — usamos esse (e não ficamos presos ao texto do resumo).
+                                    # linha isolada ? usamos esse (e não ficamos presos ao texto do resumo).
                                     cur_amt = self._parse_brl_string_to_float(current.valor)
                                     new_amt = self._parse_brl_string_to_float(picked)
                                     if (
@@ -253,7 +253,7 @@ class NubankTransactionsExtractor:
 
     @staticmethod
     def _brl_to_str(sign: str, num: str) -> str:
-        sign = "-" if sign in ("-", "−") else ""
+        sign = "-" if sign in ("-", "?") else ""
         return f"{sign}R$ {num}"
 
     @staticmethod
@@ -262,8 +262,8 @@ class NubankTransactionsExtractor:
         if not valor or not str(valor).strip():
             return None
         s = str(valor).strip()
-        sign = -1.0 if s.startswith("-") or s.startswith("−") else 1.0
-        s = s.lstrip("−-").strip()
+        sign = -1.0 if s.startswith("-") or s.startswith("?") else 1.0
+        s = s.lstrip("?-").strip()
         s = s.replace("R$", "").strip()
         s = s.replace(".", "").replace(",", ".")
         try:
@@ -274,8 +274,8 @@ class NubankTransactionsExtractor:
     @staticmethod
     def _clean_desc(s: str) -> str:
         s = s.strip()
-        # remove máscara do cartão "•••• 1234" etc
-        s = re.sub(r"^•{4}\s+\d{4}\s+", "", s)
+        # remove máscara do cartão "???? 1234" etc
+        s = re.sub(r"^?{4}\s+\d{4}\s+", "", s)
         return re.sub(r"\s+", " ", s).strip()
 
     def _pick_brl_value_from_line(self, line: str) -> str:
@@ -484,18 +484,19 @@ class SicoobCardStatementExtractor:
                     # tratar quebra de linha que começa com "01/02" (parcela) etc
                     # No Sicoob, compras parceladas aparecem como "01/02", "02/03" (parcela),
                     # e quando a descrição quebra, isso pode vir no começo da linha, parecendo
-                    # uma data DD/MM. Para evitar criar uma transação falsa, usamos o mês de
-                    # referência da fatura:
-                    # - em "GASTOS", as datas reais tendem a ficar entre {mês da fatura, mês anterior}
-                    # - se vier DD/MM com MM fora desse conjunto e existir um lançamento aberto,
-                    #   tratamos como continuação.
-                    if current and in_gastos:
+                    # uma data DD/MM. Só fundimos nesse caso quando a linha anterior ainda não
+                    # tem valor (continuação/parcela). Se o valor já veio na linha anterior,
+                    # DD/MM no início é novo lançamento: o bloco GASTOS lista compras de vários
+                    # meses, não só o mês da fatura e o anterior.
+                    # BEGIN sicoob-gastos-date-vs-parcela
+                    if current and in_gastos and not current.valor:
                         mstart = self.DATE_DDMM_RE.match(line)
                         if mstart:
                             mm0 = int(mstart.group("mm"))
                             if mm0 not in valid_months_gastos:
                                 current = self._merge_continuation(current, line)
                                 continue
+                    # END sicoob-gastos-date-vs-parcela
 
                     mdate = self.DATE_DDMM_RE.match(line)
                     if mdate:
@@ -959,8 +960,8 @@ class XlsxWriter:
             return None
 
         s = valor.strip()
-        sign = -1 if s.startswith("-") or s.startswith("−") else 1
-        s = s.lstrip("−-").strip()
+        sign = -1 if s.startswith("-") or s.startswith("?") else 1
+        s = s.lstrip("?-").strip()
         s = s.replace("R$", "").strip()
 
         # remove separador de milhar "." e troca decimal "," -> "."
