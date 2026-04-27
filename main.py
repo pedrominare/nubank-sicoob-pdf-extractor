@@ -13,7 +13,7 @@ from src.extractor import (
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extrai lançamentos de faturas em PDF (Nubank, Sicoob, Santander) e gera CSV ou XLSX."
+        description="Extrai lanÃ§amentos de faturas em PDF (Nubank, Sicoob, Santander) e gera CSV ou XLSX."
     )
     
     parser.add_argument("pdf", nargs="?", help="Caminho do arquivo PDF da fatura")
@@ -21,14 +21,14 @@ def main():
         "-o",
         "--out",
         default=None,
-        help="Caminho do arquivo de saída (default: mesmo nome do PDF com extensão do formato)",
+        help="Caminho do arquivo de saÃ­da (default: mesmo nome do PDF com extensÄƒo do formato)",
     )
     
     parser.add_argument(
         "--format",
         choices=["csv", "xlsx"],
         default="csv",
-        help="Formato de saída (default: csv)",
+        help="Formato de saÃ­da (default: csv)",
     )
 
     parser.add_argument(
@@ -55,12 +55,12 @@ def main():
     if not args.pdf:
         args.pdf = input("Informe o caminho do PDF: ").strip().strip('"')
         if not args.pdf:
-            raise SystemExit("PDF não informado.")
+            raise SystemExit("PDF nÄƒo informado.")
     
 
     pdf_path = Path(args.pdf).expanduser()
     if not pdf_path.exists():
-        raise SystemExit(f"Arquivo não encontrado: {pdf_path}")
+        raise SystemExit(f"Arquivo nÄƒo encontrado: {pdf_path}")
 
     out_path = Path(args.out) if args.out else pdf_path.with_suffix(f".{args.format}")
 
